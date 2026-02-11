@@ -1,0 +1,60 @@
+name: iOS 构建
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.4
+
+      - name: Install Dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build iOS (unsigned)
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace MusicFree.xcworkspace \
+            -scheme MusicFree \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            TARGETED_DEVICE_FAMILY=2
+
+      - name: Create IPA
+        run: |
+          cd ios/build/Build/Products/Release-iphoneos
+          mkdir -p Payload
+          cp -r MusicFree.app Payload/
+          zip -r MusicFree-unsigned.ipa Payload
+          rm -rf Payload
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicFree-ios-${{ steps.version.outputs.version }}
+          path: ios/build/Build/Products/Release-iphoneos/MusicFree-unsigned.ipa
