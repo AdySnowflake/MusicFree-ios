@@ -1,4 +1,4 @@
-name: iOS 构建
+name: Build iOS
 
 on:
   push:
@@ -11,6 +11,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,17 +50,10 @@ jobs:
           cd ios/build/Build/Products/Release-iphoneos
           mkdir -p Payload
           cp -r MusicFree.app Payload/
-          zip -r MusicFree-unsigned.ipa Payload
-          rm -rf Payload
-
-      - name: Get version
-        id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          zip -r MusicFree-${{ steps.version.outputs.version }}-iPad.ipa Payload
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: MusicFree-ios-${{ steps.version.outputs.version }}
-          path: ios/build/Build/Products/Release-iphoneos/MusicFree-unsigned.ipa
+          path: ios/build/Build/Products/Release-iphoneos/*.ipa
